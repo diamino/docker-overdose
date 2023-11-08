@@ -1,26 +1,26 @@
 import os
 import subprocess
 import time
-import json
 import threading
 import docker
 
-DOCKER_SOCK_OPTIONS=("/var/run/docker.sock", "/var/run/balena-engine.sock")
-DOCKER_SOCK=None
+DOCKER_SOCK_OPTIONS = ("/var/run/docker.sock", "/var/run/balena-engine.sock")
+DOCKER_SOCK = None
 for opt in DOCKER_SOCK_OPTIONS:
     if os.path.exists(opt):
-        DOCKER_SOCK=opt
+        DOCKER_SOCK = opt
         break
 if not DOCKER_SOCK:
-    raise Exception("No docker socket available!") 
+    raise Exception("No docker socket available!")
 
 NSENTER_BIN = "/usr/bin/nsenter"
-#IPTABLES_BIN="/usr/sbin/iptables"
-IPTABLES_BIN="/usr/sbin/iptables-legacy"
-BRCTL_BIN="/sbin/brctl"
-IP_BIN="/sbin/ip"
+# IPTABLES_BIN="/usr/sbin/iptables"
+IPTABLES_BIN = "/usr/sbin/iptables-legacy"
+BRCTL_BIN = "/sbin/brctl"
+IP_BIN = "/sbin/ip"
 
-docker_client = None 
+docker_client = None
+
 
 def connect(base_url=f"unix:/{DOCKER_SOCK}"):
     global docker_client
@@ -28,28 +28,29 @@ def connect(base_url=f"unix:/{DOCKER_SOCK}"):
 
 
 class ProcessManager:
-
     def __init__(self, name="", pid=1):
         self.name = name
         self.pid = pid
 
-    def nsenter(self, cmd="", target=None, mount=None, net=None, capture_output=False):
+    def nsenter(
+        self, cmd="", target=None, mount=None, net=None, capture_output=False
+    ):
         if not target:
             target = self.pid
         args = [NSENTER_BIN, "--target", str(target)]
         if mount:
             args += ["--mount"]
-            if mount != True:
+            if mount is not True:
                 args += [mount]
         if net:
             args += ["--net"]
-            if net != True:
+            if net is not True:
                 args += [net]
-        if type(cmd) == str:
+        if isinstance(cmd, str):
             cmd = cmd.split()
         args += cmd
-        #print(f"Will now execute [{' '.join(args)}]")
-        return subprocess.run(args, capture_output=capture_output) 
+        # print(f"Will now execute [{' '.join(args)}]")
+        return subprocess.run(args, capture_output=capture_output)
 
     def exec_in_netns(self, cmd, capture_output=False):
         return self.nsenter(net=True, cmd=cmd, capture_output=capture_output)
@@ -58,12 +59,20 @@ class ProcessManager:
         return self.nsenter(mount=True, cmd=cmd, capture_output=capture_output)
 
     def exec_in_ns(self, cmd, capture_output=False):
-        return self.nsenter(cmd=cmd, mount=True, net=True, capture_output=capture_output)
+        return self.nsenter(
+            cmd=cmd, mount=True, net=True, capture_output=capture_output
+        )
 
     def intf_to_netns(self, intf, netns, force_wlan=False, force_eth=False):
-        print(f"[{self.name}] Moving interface {intf} to namespace {netns}...", end='')
+        print(
+            f"[{self.name}] Moving interface {intf} to namespace {netns}...",
+            end="",
+        )
         self.exec_in_ns("mkdir -p /var/run/netns")
-        self.exec_in_ns(f"ln -s /proc/{netns}/ns/net /var/run/netns/{netns}", capture_output=True)
+        self.exec_in_ns(
+            f"ln -s /proc/{netns}/ns/net /var/run/netns/{netns}",
+            capture_output=True,
+        )
         if (intf.startswith("phy") and not force_eth) or force_wlan:
             cmd = ["iw", "phy", intf, "set", "netns", str(netns)]
             res = self.exec_in_ns(cmd, capture_output=True)
@@ -78,16 +87,16 @@ class ProcessManager:
         return rc
 
     def delete_default_route(self):
-        print(f"[{self.name}] Delete default route...", end='')
+        print(f"[{self.name}] Delete default route...", end="")
         self.exec_in_netns("ip route del default")
         print("OK")
 
     def add_route(self, subnet, via):
-        if type(via) == ContainerManager:
+        if isinstance(via, ContainerManager):
             via = via.ipaddress
-        elif (type(via) == tuple) and (type(via[0]) == ContainerManager):
+        elif isinstance(via, tuple) and isinstance(via[0], ContainerManager):
             via = via[0].ipaddress_in_network(network=via[1])
-        print(f"[{self.name}] Add new route to {subnet} via {via}...", end='')
+        print(f"[{self.name}] Add new route to {subnet} via {via}...", end="")
         self.exec_in_netns(["ip", "route", "add", subnet, "via", via])
         print("OK")
 
@@ -95,37 +104,57 @@ class ProcessManager:
         self.delete_default_route()
         self.add_route("default", ipaddress)
 
-    def change_nameserver(self, nameservers=['8.8.8.8']):
-        print(f"[{self.name}] Change nameserver...", end='')
-        if type(nameservers) == str:
+    def change_nameserver(self, nameservers=["8.8.8.8"]):
+        print(f"[{self.name}] Change nameserver...", end="")
+        if isinstance(nameservers, str):
             nameservers = [nameservers]
-        elif type(nameservers) == ContainerManager:
+        elif isinstance(nameservers, ContainerManager):
             nameservers = [nameservers.ipaddress]
-        self.exec_in_mntns(["sh", "-c", f"printf 'nameserver %s\n' {' '.join(nameservers)} > /etc/resolv.conf"])
+        cmd = f"printf 'nameserver %s\n' {' '.join(nameservers)} > /etc/resolv.conf"  # noqa: E501
+        self.exec_in_mntns(["sh", "-c", cmd])
         print("OK")
 
     def config_bridge(self, name, ifs=[], ipaddress=None):
-        print(f"[{self.name}] Add bridge {name}...", end='')
+        print(f"[{self.name}] Add bridge {name}...", end="")
         self.exec_in_netns([BRCTL_BIN, "addbr", name])
         for intf in ifs:
             self.exec_in_netns([BRCTL_BIN, "addif", name, intf])
         if ipaddress:
-            self.exec_in_netns([IP_BIN, 'addr', 'add', ipaddress, 'dev', name])
-        self.exec_in_netns([IP_BIN, 'link', 'set', name, 'up'])
+            self.exec_in_netns([IP_BIN, "addr", "add", ipaddress, "dev", name])
+        self.exec_in_netns([IP_BIN, "link", "set", name, "up"])
         print("OK")
 
     def run_iptables(self, cmd):
         self.exec_in_netns([IPTABLES_BIN] + cmd, capture_output=True)
 
     def set_masquerade(self, interface):
-        print(f"[{self.name}] Set up masquerading on {interface}...", end='')
-        self.run_iptables(["-t", "nat", "-I", "POSTROUTING", "-o", interface, "-j", "MASQUERADE"])
+        print(f"[{self.name}] Set up masquerading on {interface}...", end="")
+        self.run_iptables(
+            [
+                "-t",
+                "nat",
+                "-I",
+                "POSTROUTING",
+                "-o",
+                interface,
+                "-j",
+                "MASQUERADE",
+            ]
+        )
         print("OK")
 
 
 class ContainerManager(ProcessManager):
-    
-    def __init__(self, name, image=None, run_options={}, net_options={}, post_options={}, autostart=True, host=None):
+    def __init__(
+        self,
+        name,
+        image=None,
+        run_options={},
+        net_options={},
+        post_options={},
+        autostart=True,
+        host=None,
+    ):
         if not docker_client:
             connect()
         self.client = docker_client
@@ -144,10 +173,10 @@ class ContainerManager(ProcessManager):
         # TODO: Check if the container is already running
         self.clear_cache()
         kwargs = self.run_options.copy()
-        kwargs['name'] = self.name
-        kwargs['detach'] = True
-        kwargs['auto_remove'] = True
-        print(f"[{self.name}] Start container...", end='')
+        kwargs["name"] = self.name
+        kwargs["detach"] = True
+        kwargs["auto_remove"] = True
+        print(f"[{self.name}] Start container...", end="")
         self._container = self.client.containers.run(self.image, **kwargs)
         print("OK")
         if not noconfig and self.net_options:
@@ -157,13 +186,17 @@ class ContainerManager(ProcessManager):
         self.logthread.start()
 
     def logger(self, timestamps=True):
-        i = self._container.logs(stream=True, follow=True, timestamps=timestamps)
+        i = self._container.logs(
+            stream=True, follow=True, timestamps=timestamps
+        )
         try:
             while True:
-                line = next(i).decode().strip('\n\r')
+                line = next(i).decode().strip("\n\r")
                 print(f"[{self.name}] {line}")
         except StopIteration:
-            print(f"[{self.name}] !!! Logging interrupted. Container stopped? !!!")
+            print(
+                f"[{self.name}] !!! Logging interrupted. Container stopped? !!!"  # noqa : E501
+            )  # noqa: E501
 
     def config(self, options):
         self.wait_for_start()
@@ -172,24 +205,34 @@ class ContainerManager(ProcessManager):
 
         # Wait for related containers
         dependencies = set()
-        if 'depends' in options:
-            if type(options['depends']) == ContainerManager:
-                dependencies.add(options['depends'])
+        if "depends" in options:
+            if isinstance(options["depends"], ContainerManager):
+                dependencies.add(options["depends"])
             else:
-                dependencies.update(options['depends'])
+                dependencies.update(options["depends"])
         # TODO: Search for other dependencies in the options
         for d in dependencies:
-            print("\t", end='')
+            print("\t", end="")
             if not d.wait_for_start(timeout=DEPENDENCY_TIMEOUT):
-                print(f"[{self.name}] Dependency [{d.name}] failed to start! (Timeout set to {DEPENDENCY_TIMEOUT}s) Stopping configuration...")
+                print(
+                    f"[{self.name}] Dependency [{d.name}] failed to start! (Timeout set to {DEPENDENCY_TIMEOUT}s) Stopping configuration..."  # noqa : E501
+                )  # noqa: E501
                 return False
 
         for o in options:
-            ignorelist = ('depends',)
+            ignorelist = ("depends",)
             if o in ignorelist:
                 continue
-            whitelist = ('add_if', 'delete_default_route', 'change_default_route', 'add_route', 
-                         'change_nameserver', 'set_masquerade', 'config_bridge', 'add_network')
+            whitelist = (
+                "add_if",
+                "delete_default_route",
+                "change_default_route",
+                "add_route",
+                "change_nameserver",
+                "set_masquerade",
+                "config_bridge",
+                "add_network",
+            )
             if o not in whitelist:
                 print(f"[{self.name}] Option '{o}' is not supported!")
                 continue
@@ -199,11 +242,13 @@ class ContainerManager(ProcessManager):
                 print(f"[{self.name}] Option '{o}' is not supported!")
                 continue
 
-            arglist = options[o] if type(options[o]) == list else [options[o]]
+            arglist = (
+                options[o] if isinstance(options[o], list) else [options[o]]
+            )  # noqa: E501
             for arg in arglist:
-                if type(arg) == bool:
+                if isinstance(arg, bool):
                     f()
-                elif type(arg) == dict:
+                elif isinstance(arg, dict):
                     f(**arg)
                 else:
                     f(arg)
@@ -219,7 +264,7 @@ class ContainerManager(ProcessManager):
 
     def stop(self):
         if self.is_running:
-            print(f"[{self.name}] Stopping container...", end='')
+            print(f"[{self.name}] Stopping container...", end="")
             self._container.stop()
             print("OK")
         else:
@@ -238,29 +283,33 @@ class ContainerManager(ProcessManager):
         if not self.is_running:
             return False
         if not self._pid:
-            self._pid = self.inspect['State']['Pid']
+            self._pid = self.inspect["State"]["Pid"]
         return self._pid
 
     @property
     def is_running(self):
         try:
-            self._container = self.client.containers.list(filters={"name":self.name, "status":"running"})[0]
+            self._container = self.client.containers.list(
+                filters={"name": self.name, "status": "running"}
+            )[
+                0
+            ]  # noqa: E501
             return True
         except IndexError:
             return False
 
     def wait_for_start(self, timeout=60):
-        print(f"[{self.name}] Waiting for container to start...", end='')
+        print(f"[{self.name}] Waiting for container to start...", end="")
         starttime = time.time()
         while (not self.is_running) and (time.time() - starttime < timeout):
             time.sleep(1)
-        if self.is_running:        
+        if self.is_running:
             print("OK")
             return True
         else:
             print("NOK!")
             return False
-    
+
     @property
     def inspect(self):
         if self._container:
@@ -274,17 +323,17 @@ class ContainerManager(ProcessManager):
 
     def ipaddress_in_network(self, network=None):
         try:
-            networks = self.inspect['NetworkSettings']['Networks']
+            networks = self.inspect["NetworkSettings"]["Networks"]
             if not network:
                 n = next(iter(networks.values()))
             else:
                 n = networks[network]
-            return n['IPAddress']
-        except:
+            return n["IPAddress"]
+        except ValueError:  # TODO: Use correct error type(s)
             return False
 
     def add_network(self, network):
-        if type(network) == str:
+        if isinstance(network, str):
             network = self.client.networks.get(network)
         network.connect(self.name)
 
@@ -292,8 +341,8 @@ class ContainerManager(ProcessManager):
         self._container = None
         self._pid = None
 
-class NetworkManager:
 
+class NetworkManager:
     def __init__(self, name):
         if not docker_client:
             connect()
@@ -304,7 +353,7 @@ class NetworkManager:
     def _network(self):
         try:
             return self.client.networks.get(self.name)
-        except:
+        except ValueError:  # TODO: Use correct error type(s)
             return None
 
     @property
@@ -316,32 +365,34 @@ class NetworkManager:
 
     @property
     def ipsubnet(self):
-        return self.inspect['IPAM']['Config'][0]['Subnet']
+        return self.inspect["IPAM"]["Config"][0]["Subnet"]
 
     @property
     def gateway(self):
-        return self.inspect['IPAM']['Config'][0]['Gateway']
+        return self.inspect["IPAM"]["Config"][0]["Gateway"]
+
 
 class ContainersManager:
-
-    def __init__(self, host=None, containers={}, version='latest'):
+    def __init__(self, host=None, containers={}, version="latest"):
         if not host:
-            self.host = ProcessManager('host', pid=1)
+            self.host = ProcessManager("host", pid=1)
         else:
             self.host = host
         self.containers = containers
         self.version = version
 
     def add(self, container):
-        if ':' not in container.image:
-            container.image = f'{container.image}:{self.version}'
+        if ":" not in container.image:
+            container.image = f"{container.image}:{self.version}"
         self.containers[container.name] = container
         container.host = self.host
 
-    def start_containers(self, containers=None, noconfig=False, post_config=None):
+    def start_containers(
+        self, containers=None, noconfig=False, post_config=None
+    ):  # noqa : E501
         if containers:
             # Start all specified containers
-            if type(containers) == str:
+            if isinstance(containers, str):
                 names = [containers]
             else:
                 names = containers
@@ -361,7 +412,7 @@ class ContainersManager:
     def post_start_config(self, containers=None):
         if containers:
             # Config all specified containers
-            if type(containers) == str:
+            if isinstance(containers, str):
                 names = [containers]
             else:
                 names = containers
@@ -375,7 +426,7 @@ class ContainersManager:
     def stop_containers(self, containers=None):
         if containers:
             # Stop all specified containers
-            if type(containers) == str:
+            if isinstance(containers, str):
                 names = [containers]
             else:
                 names = containers
