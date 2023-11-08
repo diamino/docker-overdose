@@ -32,7 +32,7 @@ def read_requirements(path):
 setup(
     name="docker_overdose",
     version=read("docker_overdose", "VERSION"),
-    description="Awesome docker_overdose created by diamino",
+    description="Awesome docker_overdose created by Diamino",
     url="https://github.com/diamino/docker-overdose/",
     long_description=read("README.md"),
     long_description_content_type="text/markdown",

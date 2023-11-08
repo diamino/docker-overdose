@@ -1,28 +1,17 @@
 """CLI interface for docker_overdose project.
 
-Be creative! do whatever you want!
-
-- Install click or typer and create a CLI app
-- Use builtin argparse
-- Start a web application
-- Import things from your .base module
 """
-
+from  .containermanager import ContainersManager, ProcessManager, ContainerManager, NetworkManager
 
 def main():  # pragma: no cover
-    """
-    The main function executes on commands:
-    `python -m docker_overdose` and `$ docker_overdose `.
+    host = ProcessManager('host', pid=1)
 
-    This is your program's entry point.
+    containers = ContainersManager(host)
 
-    You can change this function to do whatever you want.
-    Examples:
-        * Run a test suite
-        * Run a server
-        * Do some other stuff
-        * Run a command line application (Click, Typer, ArgParse)
-        * List all available tasks
-        * Run an application (Flask, FastAPI, Django, etc.)
-    """
-    print("This will do something")
+    nginx = ContainerManager('nginx',
+                            image='nginx',
+                            run_options={'ports': {'80/tcp': 8080}},
+                            autostart=True)
+    containers.add(nginx)
+
+    containers.start_containers()
