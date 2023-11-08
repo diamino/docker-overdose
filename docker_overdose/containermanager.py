@@ -216,7 +216,7 @@ class ContainerManager(ProcessManager):
             if not d.wait_for_start(timeout=DEPENDENCY_TIMEOUT):
                 print(
                     f"[{self.name}] Dependency [{d.name}] failed to start! (Timeout set to {DEPENDENCY_TIMEOUT}s) Stopping configuration..."  # noqa : E501
-                )  # noqa: E501
+                )
                 return False
 
         for o in options:
@@ -353,7 +353,7 @@ class NetworkManager:
     def _network(self):
         try:
             return self.client.networks.get(self.name)
-        except ValueError:  # TODO: Use correct error type(s)
+        except docker.errors.NotFound:
             return None
 
     @property

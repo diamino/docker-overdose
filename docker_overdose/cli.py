@@ -1,6 +1,7 @@
 """CLI interface for docker_overdose project.
 
 """
+import time
 from .containermanager import (
     ContainersManager,
     ProcessManager,
@@ -22,3 +23,16 @@ def main():  # pragma: no cover
     containers.add(nginx)
 
     containers.start_containers()
+
+    print("Running post start config on containers...")
+    containers.post_start_config()
+
+    print("\nPress Control-C to stop the Network Manager...")
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        # Destroy all running containers
+        containers.stop_containers()
+        print("Ready...")
