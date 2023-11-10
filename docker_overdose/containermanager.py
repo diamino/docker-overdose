@@ -143,6 +143,28 @@ class ProcessManager:
         )
         print("OK")
 
+    def create_vlan(self, interface, vlanid):
+        print(
+            f"[{self.name}] Creating VLAN {vlanid} on interface {interface}...",  # noqa : E501
+            end="",
+        )
+        self.exec_in_ns(
+            [
+                IP_BIN,
+                "link",
+                "add",
+                "link",
+                interface,
+                "name",
+                f"{interface}.{vlanid}",
+                "type",
+                "vlan",
+                "id",
+                str(vlanid),
+            ]
+        )
+        print("OK")
+
 
 class ContainerManager(ProcessManager):
     def __init__(
