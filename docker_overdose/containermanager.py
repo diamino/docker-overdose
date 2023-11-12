@@ -170,7 +170,7 @@ class ProcessManager:
             f"[{self.name}] Setting IP address {ipaddress} on interface '{intf}'...",  # noqa : E501
             end="",
         )
-        self.exec_in_ns(
+        self.exec_in_netns(
             [
                 IP_BIN,
                 "addr",
@@ -187,7 +187,7 @@ class ProcessManager:
             f"[{self.name}] Bringing interface '{intf}' up...",
             end="",
         )
-        self.exec_in_ns(
+        self.exec_in_netns(
             [
                 IP_BIN,
                 "link",
