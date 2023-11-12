@@ -165,6 +165,39 @@ class ProcessManager:
         )
         print("OK")
 
+    def intf_set_ip(self, intf, ipaddress):
+        print(
+            f"[{self.name}] Setting IP address {ipaddress} on interface '{intf}'...",  # noqa : E501
+            end="",
+        )
+        self.exec_in_ns(
+            [
+                IP_BIN,
+                "addr",
+                "add",
+                ipaddress,
+                "dev",
+                intf,
+            ]
+        )
+        print("OK")
+
+    def intf_up(self, intf):
+        print(
+            f"[{self.name}] Bringing interface '{intf}' up...",
+            end="",
+        )
+        self.exec_in_ns(
+            [
+                IP_BIN,
+                "link",
+                "set",
+                intf,
+                "up",
+            ]
+        )
+        print("OK")
+
 
 class ContainerManager(ProcessManager):
     def __init__(
@@ -247,6 +280,8 @@ class ContainerManager(ProcessManager):
                 continue
             whitelist = (
                 "add_if",
+                "intf_set_ip",
+                "intf_up",
                 "delete_default_route",
                 "change_default_route",
                 "add_route",
