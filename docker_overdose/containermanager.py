@@ -229,8 +229,12 @@ class ContainerManager(ProcessManager):
         self.clear_cache()
         kwargs = self.run_options.copy()
         kwargs["name"] = self.name
-        kwargs["detach"] = True
-        kwargs["auto_remove"] = True
+        if "detach" not in kwargs:
+            kwargs["detach"] = True
+        if "auto_remove" not in kwargs:
+            kwargs["auto_remove"] = True
+        if ("network" not in kwargs) and ("network_mode" not in kwargs):
+            kwargs["network_mode"] = "none"
         print(f"[{self.name}] Start container...", end="")
         self._container = self.client.containers.run(self.image, **kwargs)
         print("OK")
