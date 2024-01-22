@@ -1,25 +1,9 @@
-import os
 import time
 import threading
-import docker
 from typing import Optional, Union
 from .processmanager import ProcessManager
-
-DOCKER_SOCK_OPTIONS = ("/var/run/docker.sock", "/var/run/balena-engine.sock")
-DOCKER_SOCK = None
-for opt in DOCKER_SOCK_OPTIONS:
-    if os.path.exists(opt):
-        DOCKER_SOCK = opt
-        break
-if not DOCKER_SOCK:
-    raise Exception("No docker socket available!")
-
-docker_client = None
-
-
-def connect(base_url=f"unix:/{DOCKER_SOCK}"):
-    global docker_client
-    docker_client = docker.DockerClient(base_url=base_url)
+from .networkmanager import NetworkManager
+from .dockerclient import get_docker_client
 
 
 class ContainerManager(ProcessManager):
@@ -33,9 +17,7 @@ class ContainerManager(ProcessManager):
         autostart: bool = True,
         host: Optional["ContainerManager"] = None,
     ):
-        if not docker_client:
-            connect()
-        self.client = docker_client
+        self.client = get_docker_client()
         self.name = name
         self.image = image
         self.run_options = run_options
@@ -60,6 +42,10 @@ class ContainerManager(ProcessManager):
             "network_mode" not in run_kwargs
         ):
             run_kwargs["network_mode"] = "none"
+        if ("network" in run_kwargs) and (
+            isinstance(run_kwargs["network"], NetworkManager)
+        ):
+            run_kwargs["network"] = run_kwargs["network"].name
         print(f"[{self.name}] Start container...", end="")
         self._container = self.client.containers.run(self.image, **run_kwargs)
         print("OK")

@@ -1,13 +1,21 @@
 import docker
-from .containermanager import docker_client, connect
+import atexit
+from .dockerclient import get_docker_client
 
 
 class NetworkManager:
-    def __init__(self, name):
-        if not docker_client:
-            connect()
-        self.client = docker_client
+    def __init__(self, name, internal=True):
+        self.client = get_docker_client()
         self.name = name
+        self.by_overdose = False
+        if self._network is None:
+            self.create(internal)
+            self.by_overdose = True
+        atexit.register(self.close)
+
+    def close(self):
+        if self.by_overdose and self._network:
+            self._network.remove()
 
     @property
     def _network(self):
@@ -15,6 +23,9 @@ class NetworkManager:
             return self.client.networks.get(self.name)
         except docker.errors.NotFound:
             return None
+
+    def create(self, internal):
+        self.client.networks.create(name=self.name, internal=internal)
 
     @property
     def inspect(self):
