@@ -2,17 +2,15 @@
 
 """
 import time
-from .containermanager import (
-    ContainersManager,
-    ProcessManager,
-    ContainerManager,
-)
+from .containermanager import ContainerManager
+from .processmanager import ProcessManager
+from .overdosemanager import OverdoseManager
 
 
 def main():  # pragma: no cover
     host = ProcessManager("host", pid=1)
 
-    containers = ContainersManager(host)
+    containers = OverdoseManager(host)
 
     nginx = ContainerManager(
         "nginx",
