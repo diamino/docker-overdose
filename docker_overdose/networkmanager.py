@@ -21,8 +21,10 @@ class NetworkManager:
         atexit.register(self.close)
 
     def close(self):
-        if self.by_overdose and self._network:
-            self._network.remove()
+        if self._network:
+            self.delete_isolation_circumvention()
+            if self.by_overdose:
+                self._network.remove()
 
     @property
     def _network(self):
@@ -36,17 +38,23 @@ class NetworkManager:
 
     def remove_isolation(self):
         print(f"Removing isolation for network [{self.name}]...")
-        self.host.run_iptables(
-            ["-D", "DOCKER-USER", "-s", self.ipsubnet, "-j", "ACCEPT"]
-        )
-        self.host.run_iptables(
-            ["-D", "DOCKER-USER", "-d", self.ipsubnet, "-j", "ACCEPT"]
-        )
+        self.delete_isolation_circumvention()
+        self.set_isolation_circumvention()
+
+    def set_isolation_circumvention(self):
         self.host.run_iptables(
             ["-I", "DOCKER-USER", "-s", self.ipsubnet, "-j", "ACCEPT"]
         )
         self.host.run_iptables(
             ["-I", "DOCKER-USER", "-d", self.ipsubnet, "-j", "ACCEPT"]
+        )
+
+    def delete_isolation_circumvention(self):
+        self.host.run_iptables(
+            ["-D", "DOCKER-USER", "-s", self.ipsubnet, "-j", "ACCEPT"]
+        )
+        self.host.run_iptables(
+            ["-D", "DOCKER-USER", "-d", self.ipsubnet, "-j", "ACCEPT"]
         )
 
     @property
