@@ -2,11 +2,12 @@ from .processmanager import ProcessManager
 
 
 class OverdoseManager:
-    def __init__(self, host=None, containers={}, version="latest"):
+    def __init__(self, host=None, name=None, containers={}, version="latest"):
         if not host:
             self.host = ProcessManager("host", pid=1)
         else:
             self.host = host
+        self.name = name
         self.containers = containers
         self.version = version
 
@@ -15,6 +16,8 @@ class OverdoseManager:
             container.image = f"{container.image}:{self.version}"
         self.containers[container.name] = container
         container.host = self.host
+        if self.name:
+            container.name = f"{self.name}_{container.name}"
 
     def start_containers(
         self, containers=None, noconfig=False, post_config=False
