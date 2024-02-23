@@ -13,6 +13,7 @@ pip install docker_overdose
 
 ## Usage
 
+Python module:
 ```py
 from docker_overdose.containermanager import ContainerManager, ContainersManager
 
@@ -26,6 +27,11 @@ container = ContainerManager('container-name',
                              autostart=True)
 containers.add(container)
 containers.start()
+```
+
+Docker image:
+```bash
+$ docker run -it --rm --pid host --privileged -v /var/run/docker:/var/run/docker docker-overdose python your-scenario.py
 ```
 
 ```bash
