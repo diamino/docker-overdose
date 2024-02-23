@@ -185,6 +185,7 @@ class ContainerManager(ProcessManager):
     @property
     def inspect(self):
         if self._container:
+            self._container.reload()
             return self._container.attrs
         else:
             return False
@@ -220,7 +221,10 @@ class ContainerManager(ProcessManager):
     def add_network(self, network):
         if isinstance(network, str):
             network = self.client.networks.get(network)
+        elif isinstance(network, NetworkManager):
+            network = network._network
         network.connect(self.name)
+        print(f"[{self.name}] Network {network.name} connected...")
 
     def change_nameserver(self, nameservers):
         if isinstance(nameservers, ContainerManager):
@@ -228,6 +232,26 @@ class ContainerManager(ProcessManager):
         else:
             _nameservers = nameservers
         super().change_nameserver(_nameservers)
+
+    def change_default_route(self, ipaddress):
+        if isinstance(ipaddress, ContainerManager):
+            _ipaddress = ipaddress.ipaddress
+        elif isinstance(ipaddress, tuple) and isinstance(
+            ipaddress[0], ContainerManager
+        ):
+            if isinstance(ipaddress[1], str):
+                _ipaddress = ipaddress[0].ipaddress_in_network(
+                    network=ipaddress[1]
+                )
+            elif isinstance(ipaddress[1], NetworkManager):
+                _ipaddress = ipaddress[0].ipaddress_in_network(
+                    network=ipaddress[1].name
+                )
+            else:
+                _ipaddress = ipaddress[0].ipaddress
+        else:
+            _ipaddress = ipaddress
+        super().change_default_route(_ipaddress)
 
     def clear_cache(self):
         self._container = None

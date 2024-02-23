@@ -2,8 +2,8 @@ import subprocess
 from typing import Optional, Iterable
 
 NSENTER_BIN = "/usr/bin/nsenter"
-# IPTABLES_BIN="/usr/sbin/iptables"
-IPTABLES_BIN = "/usr/sbin/iptables-legacy"
+IPTABLES_BIN = "/usr/sbin/iptables"
+# IPTABLES_BIN = "/usr/sbin/iptables-legacy"
 BRCTL_BIN = "/sbin/brctl"
 IP_BIN = "/sbin/ip"
 
@@ -128,7 +128,8 @@ class ProcessManager:
         print("OK")
 
     def run_iptables(self, cmd: list[str]) -> None:
-        self.exec_in_netns([IPTABLES_BIN] + cmd, capture_output=True)
+        # self.exec_in_netns([IPTABLES_BIN] + cmd, capture_output=True)
+        self.exec_in_ns([IPTABLES_BIN] + cmd, capture_output=True)
 
     def set_masquerade(self, interface: str) -> None:
         print(f"[{self.name}] Set up masquerading on {interface}...", end="")
