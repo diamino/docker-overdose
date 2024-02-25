@@ -2,7 +2,7 @@
 
 """
 
-import time
+# import time
 from docker_overdose import (
     ContainerManager,
     ProcessManager,
@@ -73,7 +73,8 @@ def main():  # pragma: no cover
     print("\nPress Control-C to stop the Network Manager...")
 
     try:
-        result = left.exec_in_ns(f"ping {right.ipaddress} -c 10")
+        # result = left.exec_in_ns(f"ping {right.ipaddress} -c 10")
+        result = left.exec_in_ns(f"ping {right.ipaddress}")
         print(f"Returncode = {result.returncode}")
         print("Will now teardown containers...")
         containers.stop_containers()
