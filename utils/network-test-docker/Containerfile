@@ -1,0 +1,5 @@
+FROM debian:bookworm
+
+RUN apt update && \
+    DEBIAN_FRONTEND=noninteractive apt install -y iproute2 iputils-ping tcpdump wget curl && \
+    rm -rf /var/lib/apt/lists/*
